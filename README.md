@@ -2,13 +2,16 @@
 
 A slack bot for ops event/incident management.
 
-*Status*
+**Status**
+
 Active development - does not work yet
 
-*Premise*
+**Premise**
+
 The hardest part of incident management (aside from fixing the incident) is communication. Alarmie serves as a central point of communication about the status of an ongoing incident.
 
-*Interface*
+**Interface**
+
 Communicate with alarmie directly as a bot in slack.
 ```
 @alarmie
@@ -31,6 +34,6 @@ Communicate with alarmie directly as a bot in slack.
     get #number => <message>
 ```
 
-*License*
+**License**
 MIT
-See LICENSE
+See [LICENSE](LICENSE)
