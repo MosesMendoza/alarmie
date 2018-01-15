@@ -33,7 +33,11 @@ Communicate with alarmie directly as a bot in slack.
     get => <#numbers>
     get #number => <message>
 ```
+**Code**
+app - slack connection and service management logic
+alarmie - logic
 
 **License**
 MIT
 See [LICENSE](LICENSE)
+
