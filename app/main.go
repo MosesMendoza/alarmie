@@ -18,7 +18,7 @@ func main() {
 		panic(errors.New("Could not locate values for configuration in environment"))
 	}
 
-	application.Configuration = config
+	application.Config = config
 
 	// set up logger
 	var Log = log.New("Alarmie", "application startup")

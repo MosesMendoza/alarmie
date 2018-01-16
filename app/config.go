@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,9 +15,10 @@ type Config struct {
 // LoadFromEnvironment will populate the values of the given Config pointer from
 // the pre-known keys in the environment, and return non-nil error on failure
 func (c Config) LoadFromEnvironment() error {
+	const logFilePath = "ALARMIE_LOGFILEPATH"
 	c.LogFilePath = os.Getenv("ALARMIE_LOGFILEPATH")
 	if c.LogFilePath == "" {
-		return errors.New("Could not locate values for configuration in environment")
+		return fmt.Errorf("Could not locate values for configuration in environment: %s", logFilePath)
 	}
 	return nil
 }
