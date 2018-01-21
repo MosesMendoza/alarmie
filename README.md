@@ -38,3 +38,6 @@ Communicate with alarmie directly as a bot in slack.
 MIT
 See [LICENSE](LICENSE)
 
+**Layout**
+app: code related to application startup, connection initiation, message interface with slack
+alarmie: logic layer - knowledge of event management
