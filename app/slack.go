@@ -2,11 +2,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/inconshreveable/log15"
+	"golang.org/x/net/websocket"
 )
 
 // Slack is the basic connection interface
@@ -22,24 +24,58 @@ type SlackConnection struct {
 	logger log15.Logger
 }
 
-// Connect instantiates the slack connection instance and maintains the
-// websocket reference internally
-func (s SlackConnection) Connect(token string) error {
+// Connect instantiates the slack connection instance and returns an
+// object representing the connection.
+func (s SlackConnection) Connect(token string) (*RtmConnectionContext, error) {
 	// TODO move this URL out to config after rewriting config class
+	s.logger.Info("Initiating connection to Slack")
 	slackAPIURL := fmt.Sprintf("https://slack.com/api/rtm.connect?token=%s", token)
 	response, error := http.Get(slackAPIURL)
 
 	if error != nil || response.StatusCode != http.StatusOK {
-		s.logger.Error("Could not initiate RTM connection to Slack: %s", error.Error())
-		s.logger.Error("HTTP response code: %d", response.StatusCode)
-		return error
+		s.logger.Crit("Could not initiate RTM connection to Slack: %s", error.Error())
+		s.logger.Crit("HTTP response code: %d", response.StatusCode)
+		return nil, error
 	}
+	s.logger.Debug("%s: %d", response.Status, response.StatusCode)
 
 	body, error := s.readHTTPBody(response)
 	if error != nil {
-		return error
+		return nil, error
 	}
 
+	rtmConnectResponse := new(RtmConnectResponse)
+	unmarshallError := json.Unmarshal(body, rtmConnectResponse)
+
+	if error != nil {
+		s.logger.Crit("Could not deserialize connection response object: %s", unmarshallError.Error())
+		return nil, unmarshallError
+	}
+
+	var temporaryURL = rtmConnectResponse.WsURL
+	var connectedAsID = rtmConnectResponse.Self.ID
+	var domain = rtmConnectResponse.Team.Domain
+	var teamName = rtmConnectResponse.Team.Name
+	var name = rtmConnectResponse.Self.Name
+
+	socket, error := s.initiateWebsocketConnection(temporaryURL)
+	if error != nil {
+		return nil, error
+	}
+
+	s.logger.Debug("Successfully initiated connection to Slack")
+	s.logger.Debug("Connected as ID: %s", connectedAsID)
+	s.logger.Debug("My Name: %s", name)
+	s.logger.Debug("Domain: %s", domain)
+	s.logger.Debug("Team Name: %s", teamName)
+
+	context := &RtmConnectionContext{ID: connectedAsID,
+		SocketConnection: socket,
+		Domain:           domain,
+		TeamName:         teamName,
+		Name:             name}
+
+	return context, nil
 }
 
 // SendMessage takes a string and sends it over the websocket connection
@@ -55,21 +91,32 @@ func (s SlackConnection) GetMessage() string {
 }
 
 // Utility helpers
-
-func (s SlackConnection) readHTTPBody(response *http.Response) (string, error) {
+// API Private
+func (s SlackConnection) readHTTPBody(response *http.Response) ([]byte, error) {
 	defer response.Body.Close()
 
 	body, error := ioutil.ReadAll(response.Body)
 
 	if error != nil {
-		s.logger.Error("Could not read body from RTM connection response, %s", error.Error())
-		return "", error
+		s.logger.Crit("Could not read body from RTM connection response, %s", error.Error())
+		return nil, error
 	}
 
-	return string(body), nil
+	return body, nil
 }
 
-// Models, particularly Slack API
+func (s SlackConnection) initiateWebsocketConnection(url string) (*websocket.Conn, error) {
+	socket, error := websocket.Dial(url, "", "https://slack.com")
+	if error != nil {
+		s.logger.Crit("Could not initiate websocket connection: %s", error.Error())
+		return nil, error
+	}
+
+	return socket, error
+}
+
+// Models, including representing Slack API
+// API Public
 
 // Message corresponds 1:1 to the slack Message object
 type Message struct {
@@ -99,4 +146,14 @@ type RtmConnectTeam struct {
 	Domain string `json:"domain"`
 	ID     string `json:"id"`
 	Name   string `json:"name"`
+}
+
+// RtmConnectionContext has the information we need to identify ourself and
+// send/receive messages
+type RtmConnectionContext struct {
+	ID               string
+	Name             string
+	TeamName         string
+	Domain           string
+	SocketConnection *websocket.Conn
 }
