@@ -39,12 +39,20 @@ func main() {
 	// anywhere in the application. It is passed directly to the slack connection.
 	token := os.Getenv("SLACK_ALARMIE_TOKEN")
 	if token == "" {
-		application.Logger.Crit(fmt.Sprintf("Could not find SLACK_ALARMIE_TOKEN in environment. Do `export SLACK_ALARMIE_TOKEN=<token>` and run again."))
+		application.Logger.Crit("Could not find SLACK_ALARMIE_TOKEN in environment. Do `export SLACK_ALARMIE_TOKEN=<token>` and run again.")
 		os.Exit(1)
 	}
 
 	connector := &SlackConnection{logger}
 	connectionContext, error := connector.Connect(token)
+
+	if error != nil {
+		application.Logger.Crit("Alarmie could not initialize its connection to Slack")
+		os.Exit(1)
+	}
+
+	application.Connector = connector
+	application.Context = connectionContext
 
 	fmt.Printf("context: %v\nerror: %s", connectionContext, error)
 }
