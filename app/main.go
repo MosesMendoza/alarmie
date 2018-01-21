@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -13,30 +12,39 @@ func main() {
 
 	// set up configuration
 	config := new(Config)
-	var configError = config.LoadFromEnvironment()
+	configError := config.LoadFromEnvironment()
 	if configError != nil {
-		panic(errors.New("Could not locate values for configuration in environment"))
+		fmt.Printf(configError.Error())
+		os.Exit(1)
 	}
-
 	application.Config = config
 
-	// set up logger
 	logger := log.New("Alarmie", "application startup")
-	// TODO: Have to actually make the log file on first run
-	logHandler, error := log.FileHandler(config.LogFilePath, log.LogfmtFormat())
-	if error != nil {
-		panic(fmt.Errorf("Could not open log file handle: %s", error.Error()))
-	} else {
-		logger.SetHandler(logHandler)
-		application.Logger = logger
-	}
-	application.Logger.Warn("Started application")
-	// initiate connection to slack
-}
 
-// Retrieve authorization credentials from environment variable
-// SLACK_ALARMIE_TOKEN
-func getAuthCredentialsFromEnv() string {
-	// will add error handling, logging. WIP
-	return os.Getenv("SLACK_ALARMIE_TOKEN")
+	// TODO: Something has to actually make the log file on first run
+	logHandler := log.FailoverHandler(
+		// Try to open log file and use it, but fall back to stdout on error
+		log.Must.FileHandler(config.LogFilePath, log.LogfmtFormat()),
+		log.StdoutHandler)
+
+	logger.SetHandler(logHandler)
+	application.Logger = logger
+
+	application.Logger.Debug("Initialized logging via log handler %v", logHandler)
+
+	// initiate connection to slack
+	// Retrieve authorization credentials from environment variable
+	// SLACK_ALARMIE_TOKEN
+	//Note: This token is NOT maintained in any internal state
+	// anywhere in the application. It is passed directly to the slack connection.
+	token := os.Getenv("SLACK_ALARMIE_TOKEN")
+	if token == "" {
+		application.Logger.Crit(fmt.Sprintf("Could not find SLACK_ALARMIE_TOKEN in environment. Do `export SLACK_ALARMIE_TOKEN=<token>` and run again."))
+		os.Exit(1)
+	}
+
+	connector := &SlackConnection{logger}
+	connectionContext, error := connector.Connect(token)
+
+	fmt.Printf("context: %v\nerror: %s", connectionContext, error)
 }
