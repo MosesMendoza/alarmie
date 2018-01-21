@@ -22,12 +22,14 @@ func main() {
 	logger := log.New("Alarmie", "application startup")
 
 	// TODO: Something has to actually make the log file on first run
-	logHandler := log.FailoverHandler(
+	// Note: this is the insertion point for where we'll set log level
+	logHandler := log.LvlFilterHandler(log.LvlInfo, log.FailoverHandler(
 		// Try to open log file and use it, but fall back to stdout on error
 		log.Must.FileHandler(config.LogFilePath, log.LogfmtFormat()),
-		log.StdoutHandler)
+		log.StdoutHandler))
 
 	logger.SetHandler(logHandler)
+
 	application.Logger = logger
 
 	application.Logger.Debug("Initialized logging via log handler %v", logHandler)
