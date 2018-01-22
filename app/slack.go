@@ -26,30 +26,12 @@ type SlackConnection struct {
 
 // Connect instantiates the slack connection instance and returns an
 // object representing the connection.
-func (s SlackConnection) Connect(token string) (*RtmConnectionContext, error) {
+func (s SlackConnection) Connect(token string, slackAPIURL string) (*RtmConnectionContext, error) {
 	// TODO move this URL out to config after rewriting config class
-	s.logger.Info("Initiating connection to Slack")
-	slackAPIURL := fmt.Sprintf("https://slack.com/api/rtm.connect?token=%s", token)
-	response, error := http.Get(slackAPIURL)
 
-	if error != nil || response.StatusCode != http.StatusOK {
-		s.logger.Crit("Could not initiate RTM connection to Slack: %s", error.Error())
-		s.logger.Crit("HTTP response code: %d", response.StatusCode)
-		return nil, error
-	}
-	s.logger.Debug("%s: %d", response.Status, response.StatusCode)
-
-	body, error := s.readHTTPBody(response)
+	rtmConnectResponse, error := s.GetSecureRtmConnectionInfo(token, slackAPIURL)
 	if error != nil {
 		return nil, error
-	}
-
-	rtmConnectResponse := new(RtmConnectResponse)
-	unmarshallError := json.Unmarshal(body, rtmConnectResponse)
-
-	if error != nil {
-		s.logger.Crit("Could not deserialize connection response object: %s", unmarshallError.Error())
-		return nil, unmarshallError
 	}
 
 	var temporaryURL = rtmConnectResponse.WsURL
@@ -58,7 +40,7 @@ func (s SlackConnection) Connect(token string) (*RtmConnectionContext, error) {
 	var teamName = rtmConnectResponse.Team.Name
 	var name = rtmConnectResponse.Self.Name
 
-	socket, error := s.initiateWebsocketConnection(temporaryURL)
+	socket, error := s.InitiateWebsocketConnection(temporaryURL)
 	if error != nil {
 		return nil, error
 	}
@@ -78,21 +60,37 @@ func (s SlackConnection) Connect(token string) (*RtmConnectionContext, error) {
 	return context, nil
 }
 
-// SendMessage takes a string and sends it over the websocket connection
-func (s SlackConnection) SendMessage(message string) bool {
-	return true
+// GetSecureRtmConnectionInfo obtains the Rtm info needed to generate a websocket connection
+func (s SlackConnection) GetSecureRtmConnectionInfo(token string, slackAPIURL string) (*RtmConnectResponse, error) {
+	s.logger.Info("Initiating connection to Slack")
+	url := fmt.Sprintf("%s?token=%s", slackAPIURL, token)
+	response, error := http.Get(url)
+
+	if error != nil || response.StatusCode != http.StatusOK {
+		s.logger.Crit("Could not initiate RTM connection to Slack: %s", error.Error())
+		s.logger.Crit("HTTP response code: %d", response.StatusCode)
+		return nil, error
+	}
+	s.logger.Debug("%s: %d", response.Status, response.StatusCode)
+
+	body, error := s.ReadHTTPBody(response)
+	if error != nil {
+		return nil, error
+	}
+
+	rtmConnectResponse := new(RtmConnectResponse)
+	unmarshallError := json.Unmarshal(body, rtmConnectResponse)
+
+	if error != nil {
+		s.logger.Crit("Could not deserialize connection response object: %s", unmarshallError.Error())
+		return nil, unmarshallError
+	}
+	return rtmConnectResponse, nil
 }
 
-// GetMessage retrieves the next message from the internal websocket connection.
-// This function acts like a blocking queue/channel - retrieving a message when
-// the queue is empty will block
-func (s SlackConnection) GetMessage() string {
-	return "foo"
-}
-
-// Utility helpers
-// API Private
-func (s SlackConnection) readHTTPBody(response *http.Response) ([]byte, error) {
+// ReadHTTPBody is a simple helper to return the byte-array content of an http
+// response object
+func (s SlackConnection) ReadHTTPBody(response *http.Response) ([]byte, error) {
 	defer response.Body.Close()
 
 	body, error := ioutil.ReadAll(response.Body)
@@ -105,7 +103,8 @@ func (s SlackConnection) readHTTPBody(response *http.Response) ([]byte, error) {
 	return body, nil
 }
 
-func (s SlackConnection) initiateWebsocketConnection(url string) (*websocket.Conn, error) {
+// InitiateWebsocketConnection creats a websocket connection given a URL
+func (s SlackConnection) InitiateWebsocketConnection(url string) (*websocket.Conn, error) {
 	socket, error := websocket.Dial(url, "", "https://slack.com")
 	if error != nil {
 		s.logger.Crit("Could not initiate websocket connection: %s", error.Error())
@@ -115,8 +114,19 @@ func (s SlackConnection) initiateWebsocketConnection(url string) (*websocket.Con
 	return socket, error
 }
 
+// SendMessage takes a string and sends it over the websocket connection
+func (s SlackConnection) SendMessage(message string) bool {
+	return true
+}
+
+// GetMessage retrieves the next message from the internal websocket connection.
+// This function acts like a blocking queue/channel - retrieving a message when
+// the queue is empty will block
+func (s SlackConnection) GetMessage() string {
+	return "foo"
+}
+
 // Models, including representing Slack API
-// API Public
 
 // Message corresponds 1:1 to the slack Message object
 type Message struct {
