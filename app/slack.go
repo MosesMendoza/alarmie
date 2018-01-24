@@ -73,7 +73,7 @@ func (s SlackConnection) GetSecureRtmConnectionInfo(token string, slackAPIURL st
 	}
 	s.logger.Debug("%s: %d", response.Status, response.StatusCode)
 
-	body, error := s.ReadHTTPBody(response)
+	body, error := s.readHTTPBody(response)
 	if error != nil {
 		return nil, error
 	}
@@ -90,7 +90,7 @@ func (s SlackConnection) GetSecureRtmConnectionInfo(token string, slackAPIURL st
 
 // ReadHTTPBody is a simple helper to return the byte-array content of an http
 // response object
-func (s SlackConnection) ReadHTTPBody(response *http.Response) ([]byte, error) {
+func (s SlackConnection) readHTTPBody(response *http.Response) ([]byte, error) {
 	defer response.Body.Close()
 
 	body, error := ioutil.ReadAll(response.Body)
