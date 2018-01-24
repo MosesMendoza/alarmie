@@ -46,7 +46,7 @@ func main() {
 	}
 
 	connector := &SlackConnection{logger}
-	connectionContext, error := connector.Connect(token)
+	connectionContext, error := connector.Connect(token, "foo")
 
 	if error != nil {
 		application.Logger.Crit("Alarmie could not initialize its connection to Slack")
