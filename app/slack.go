@@ -1,4 +1,5 @@
 // Our basic API/interface to slack
+// this should probably be in a different package than main - we're going to collide
 package main
 
 import (

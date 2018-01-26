@@ -8,13 +8,19 @@ import (
 )
 
 // StartTestWebsocketServer returns an instance of an HTTP Server that can serve
-// websockets. Callers use the instance to stop the server.
-func StartTestWebsocketServer() *http.Server {
+// websockets. Callers use the instance to stop the server. Takes two arguments:
+// route <string> a path/route to mount, which will return a websocket connection
+// response <string> a JSON blob that the websocket will reply to any message with,
+// 	(representing an object) to reply with given a GET to that route. This is to
+// 	be able to test message deserialization/handling logic in a client.
+func StartTestWebsocketServer(route string, response string) *http.Server {
 	const bindPort = ":9999"
 
 	server := &http.Server{Addr: bindPort}
 
-	http.Handle("/", websocket.Handler(replyForverHandler))
+	handler := createHandlerWithResponse(response)
+
+	http.Handle("/", websocket.Handler(handler))
 
 	go func() {
 		error := server.ListenAndServe()
@@ -36,22 +42,20 @@ func StopTestWebsocketServer(server *http.Server) error {
 	return nil
 }
 
-// replyForeverHandler just replies back with the message that was received.
-// Used to validate connection only.
-func replyForverHandler(socket *websocket.Conn) {
-	// FYI the websocket package has a number of "static" methods on the package that
-	// take a websocket connection to act on.
-	fmt.Println("In websocket handler")
-	for {
-		// drop the message into a string
-		var receivedMessage string
-		receiveError := websocket.Message.Receive(socket, &receivedMessage)
-		if receiveError != nil {
-			fmt.Printf("Could not receive message from websocket in testUtils: %s", receiveError.Error())
-		}
-		sendError := websocket.Message.Send(socket, receivedMessage)
-		if sendError != nil {
-			fmt.Printf("Could not send reply message over websocket in testUtils: %s", sendError.Error())
+// createHandlerWithResponse returns an anonymous function that can stand in as
+// a handler for the test server, which will reply with the given string
+func createHandlerWithResponse(response string) func(*websocket.Conn) {
+	return func(socket *websocket.Conn) {
+		for {
+			var receivedMessage string
+			receiveError := websocket.Message.Receive(socket, &receivedMessage)
+			if receiveError != nil {
+				fmt.Printf("Could not receive message from websocket in testUtils: %s", receiveError.Error())
+			}
+			sendError := websocket.Message.Send(socket, response)
+			if sendError != nil {
+				fmt.Printf("Could not send reply message over websocket in testUtils: %s", sendError.Error())
+			}
 		}
 	}
 }

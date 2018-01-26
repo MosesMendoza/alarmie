@@ -4,6 +4,7 @@ import "testing"
 import "github.com/MosesMendoza/alarmie/testUtils"
 import "golang.org/x/net/websocket"
 import "fmt"
+import "encoding/json"
 
 func TestInitiatWebSocketConnectionCreatesWebsocket(t *testing.T) {
 	/*
@@ -14,7 +15,9 @@ func TestInitiatWebSocketConnectionCreatesWebsocket(t *testing.T) {
 		that the connection is returned
 	*/
 
-	server := testUtils.StartTestWebsocketServer()
+	replyObjectAsString, error := json.Marshal(Message{Type: "test", Channel: "channel-foo", User: "coder", Text: "test text", Timestamp: "<timestamp>"})
+
+	server := testUtils.StartTestWebsocketServer("/", string(replyObjectAsString))
 
 	defer testUtils.StopTestWebsocketServer(server)
 
@@ -39,4 +42,6 @@ func TestInitiatWebSocketConnectionCreatesWebsocket(t *testing.T) {
 		fmt.Printf("Could not receive reply message over websocket in slack_test: %s", receiveError.Error())
 		t.FailNow()
 	}
+
+	fmt.Printf("Server replied with %s", reply)
 }
