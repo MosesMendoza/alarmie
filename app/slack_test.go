@@ -1,33 +1,77 @@
 package main
 
-import "testing"
-import "github.com/MosesMendoza/alarmie/testUtils"
-import "golang.org/x/net/websocket"
-import "fmt"
-import "encoding/json"
+import (
+	"encoding/json"
+	"reflect"
+	"testing"
+
+	"github.com/MosesMendoza/alarmie/testUtils"
+	"golang.org/x/net/websocket"
+)
 
 func TestInitiatWebSocketConnectionCreatesWebsocket(t *testing.T) {
-	/*
-		Test that, given a URL, uses websocket to "dial" that URL and initiate
-		a socket connection. then returns the socket connection
+	reply := "foo"
+	server := testUtils.StartTestWebsocketServer("/", string(reply))
 
-		Test by creating an http server that serves websocket connections, and testing
-		that the connection is returned
-	*/
-
-	replyObjectAsString, error := json.Marshal(Message{Type: "test", Channel: "channel-foo", User: "coder", Text: "test text", Timestamp: "<timestamp>"})
-
-	server := testUtils.StartTestWebsocketServer("/", string(replyObjectAsString))
-
+	// teardown
 	defer testUtils.StopTestWebsocketServer(server)
 
-	fmt.Printf("Dialing " + "ws://127.0.0.1" + server.Addr + "\n")
 	connection, error := websocket.Dial("ws://127.0.0.1"+server.Addr, "", "http://localhost")
-
 	if error != nil {
-		fmt.Printf("Could not dial websocket connection in slack_test: %s", error.Error())
+		t.Errorf("Could not dial websocket connection in slack_test: %s", error.Error())
 		t.FailNow()
 	}
+
+	if reflect.TypeOf(connection) != reflect.TypeOf(new(websocket.Conn)) {
+		t.Errorf("Expected InitiateWebsocketConnection to return a *websocket.Conn, but received %s", reflect.TypeOf(connection))
+		t.FailNow()
+	}
+}
+
+func TestGetSecureRtmConnectionInfoDeserializes(t *testing.T) {
+	// Setup
+	logger := testUtils.GetTestLogger()
+	slackConnection := SlackConnection{logger: logger}
+
+	// These are the objects the HTTP server will reply with
+	expectedTeam := RtmConnectTeam{Domain: "fooTeam.com", ID: "teamID", Name: "teamName"}
+	expectedSelf := RtmConnectSelf{ID: "selfID", Name: "selfName"}
+	expectedConnectResponse := RtmConnectResponse{Ok: true, Self: expectedSelf, Team: expectedTeam, WsURL: "https://aSecureUrl.foo/websocket"}
+
+	replyObject, error := json.Marshal(expectedConnectResponse)
+	if error != nil {
+		t.Errorf("Could not serialize expected response in test setup: %s", error.Error())
+		t.FailNow()
+	}
+	server := testUtils.StartTestHTTPServer("/", string(replyObject))
+
+	rtmConnectionInfo, error := slackConnection.GetSecureRtmConnectionInfo("aPretentTokne", "http://127.0.0.1:9998/")
+
+	if error != nil {
+		t.Errorf("Unexpected error from GetSecureRtmConnectionInfo: %s", error.Error())
+		t.FailNow()
+	}
+
+	// Confirm type & characteristics
+	if rtmConnectionInfo.Ok != true {
+		t.Errorf("Expected response property 'Ok' to be true, not %t", rtmConnectionInfo.Ok)
+		t.FailNow()
+	}
+
+	if rtmConnectionInfo.Team.Name != "teamName" {
+		t.Errorf("Expected response property Team to have a Name of teamName, not %s", rtmConnectionInfo.Team.Name)
+		t.FailNow()
+	}
+
+	if rtmConnectionInfo.WsURL != "https://aSecureUrl.foo/websocket" {
+		t.Errorf("Expected response property WsUrl to be https://aSecureUrl.foo/websocket, not %s", rtmConnectionInfo.WsURL)
+		t.FailNow()
+	}
+	// teardown
+	defer testUtils.StopTestWebsocketServer(server)
+}
+
+/*
 	message := "Test Message"
 	var reply string
 
@@ -44,4 +88,4 @@ func TestInitiatWebSocketConnectionCreatesWebsocket(t *testing.T) {
 	}
 
 	fmt.Printf("Server replied with %s", reply)
-}
+*/
