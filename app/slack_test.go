@@ -9,14 +9,17 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-func TestInitiatWebSocketConnectionCreatesWebsocket(t *testing.T) {
+func TestInitiateWebsocketConnectionCreatesWebsocket(t *testing.T) {
+	// setup
 	reply := "foo"
-	server := testUtils.StartTestWebsocketServer("/", string(reply))
+	server := testUtils.StartTestWebsocketServer("/", reply)
 
+	logger := testUtils.GetTestLogger()
+	slackConnection := SlackConnection{logger: logger}
 	// teardown
 	defer testUtils.StopTestWebsocketServer(server)
 
-	connection, error := websocket.Dial("ws://127.0.0.1"+server.Addr, "", "http://localhost")
+	connection, error := slackConnection.InitiateWebsocketConnection("ws://127.0.0.1:9999/")
 	if error != nil {
 		t.Errorf("Could not dial websocket connection in slack_test: %s", error.Error())
 		t.FailNow()

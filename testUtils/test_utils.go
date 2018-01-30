@@ -24,7 +24,7 @@ func GetTestLogger() log.Logger {
 // 	(representing an object) to reply with given a GET to that route. This is to
 // 	be able to test message deserialization/handling logic in a client.
 func StartTestWebsocketServer(route string, response string) *http.Server {
-	// TODO: randomize this
+	// TODO: randomize this or parameterize it
 	const bindPort = ":9999"
 
 	server := &http.Server{Addr: bindPort}
@@ -73,8 +73,9 @@ func StopTestWebsocketServer(server *http.Server) error {
 	return nil
 }
 
-// createHandlerWithResponse returns an anonymous function that can stand in as
-// a websocket handler for the test server, which will reply with the given string
+// createWebsocketHandlerWithResponse returns an anonymous function that can
+// stand in as a websocket handler for the test server, which will reply with
+// the given string
 func createWebsocketHandlerWithResponse(response string) func(*websocket.Conn) {
 	return func(socket *websocket.Conn) {
 		for {
