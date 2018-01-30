@@ -23,11 +23,8 @@ func GetTestLogger() log.Logger {
 // response <string> a JSON blob that the websocket will reply to any message with,
 // 	(representing an object) to reply with given a GET to that route. This is to
 // 	be able to test message deserialization/handling logic in a client.
-func StartTestWebsocketServer(route string, response string) *http.Server {
-	// TODO: randomize this or parameterize it
-	const bindPort = ":9999"
-
-	server := &http.Server{Addr: bindPort}
+func StartTestWebsocketServer(route string, bindPort string, response string) *http.Server {
+	server := &http.Server{Addr: ":" + bindPort}
 
 	handler := createWebsocketHandlerWithResponse(response)
 
@@ -44,10 +41,8 @@ func StartTestWebsocketServer(route string, response string) *http.Server {
 // response <string> a JSON blob that the server will reply with to any requests
 // 	to the supplied route
 // This is to be able to test message deserialization/handling logic in client
-func StartTestHTTPServer(route string, response string) *http.Server {
-	// TODO: randomize this
-	const bindPort = ":9998"
-	server := &http.Server{Addr: bindPort}
+func StartTestHTTPServer(route string, bindPort string, response string) *http.Server {
+	server := &http.Server{Addr: ":" + bindPort}
 	handler := createHTTPHandlerWithResponse(response)
 	http.HandleFunc(route, handler)
 	runHTTPServerListenLoop(server)

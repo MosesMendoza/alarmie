@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"testing"
+
+	"math/rand"
 
 	"github.com/MosesMendoza/alarmie/testUtils"
 	"golang.org/x/net/websocket"
@@ -12,14 +15,20 @@ import (
 func TestInitiateWebsocketConnectionCreatesWebsocket(t *testing.T) {
 	// setup
 	reply := "foo"
-	server := testUtils.StartTestWebsocketServer("/", reply)
+	const route = "/"
+	const listenAddress = "127.0.0.1"
+	const scheme = "ws://"
+	bindPort := strconv.Itoa(rand.Intn(9999))
+
+	websocketURL := scheme + listenAddress + ":" + bindPort + route
+	server := testUtils.StartTestWebsocketServer(route, bindPort, reply)
 
 	logger := testUtils.GetTestLogger()
 	slackConnection := SlackConnection{logger: logger}
 	// teardown
 	defer testUtils.StopTestWebsocketServer(server)
 
-	connection, error := slackConnection.InitiateWebsocketConnection("ws://127.0.0.1:9999/")
+	connection, error := slackConnection.InitiateWebsocketConnection(websocketURL)
 	if error != nil {
 		t.Errorf("Could not dial websocket connection in slack_test: %s", error.Error())
 		t.FailNow()
@@ -36,6 +45,12 @@ func TestGetSecureRtmConnectionInfoDeserializes(t *testing.T) {
 	logger := testUtils.GetTestLogger()
 	slackConnection := SlackConnection{logger: logger}
 
+	const route = "/"
+	const scheme = "http://"
+	const listenAddress = "127.0.0.1"
+	bindPort := strconv.Itoa(rand.Intn(9999))
+	rtmConnectURL := scheme + listenAddress + ":" + bindPort + route
+
 	// These are the objects the HTTP server will reply with
 	expectedTeam := RtmConnectTeam{Domain: "fooTeam.com", ID: "teamID", Name: "teamName"}
 	expectedSelf := RtmConnectSelf{ID: "selfID", Name: "selfName"}
@@ -46,9 +61,9 @@ func TestGetSecureRtmConnectionInfoDeserializes(t *testing.T) {
 		t.Errorf("Could not serialize expected response in test setup: %s", error.Error())
 		t.FailNow()
 	}
-	server := testUtils.StartTestHTTPServer("/", string(replyObject))
+	server := testUtils.StartTestHTTPServer(route, bindPort, string(replyObject))
 
-	rtmConnectionInfo, error := slackConnection.GetSecureRtmConnectionInfo("aPretentTokne", "http://127.0.0.1:9998/")
+	rtmConnectionInfo, error := slackConnection.GetSecureRtmConnectionInfo("aPretentTokne", rtmConnectURL)
 
 	if error != nil {
 		t.Errorf("Unexpected error from GetSecureRtmConnectionInfo: %s", error.Error())
