@@ -47,10 +47,10 @@ func (s SlackConnection) Connect(token string, slackAPIURL string) (*RtmConnecti
 	}
 
 	s.logger.Debug("Successfully initiated connection to Slack")
-	s.logger.Debug("Connected as ID: %s", connectedAsID)
-	s.logger.Debug("My Name: %s", name)
-	s.logger.Debug("Domain: %s", domain)
-	s.logger.Debug("Team Name: %s", teamName)
+	s.logger.Debug(fmt.Sprintf("Connected as ID: %s", connectedAsID))
+	s.logger.Debug(fmt.Sprintf("My Name: %s", name))
+	s.logger.Debug(fmt.Sprintf("Domain: %s", domain))
+	s.logger.Debug(fmt.Sprintf("Team Name: %s", teamName))
 
 	context := &RtmConnectionContext{ID: connectedAsID,
 		SocketConnection: socket,
@@ -68,11 +68,11 @@ func (s SlackConnection) GetSecureRtmConnectionInfo(token string, slackAPIURL st
 	response, error := http.Get(url)
 
 	if error != nil || response.StatusCode != http.StatusOK {
-		s.logger.Crit("Could not initiate RTM connection to Slack: %s", error.Error())
-		s.logger.Crit("HTTP response code: %d", response.StatusCode)
+		s.logger.Crit(fmt.Sprintf("Could not initiate RTM connection to Slack: %s", error.Error()))
+		s.logger.Crit(fmt.Sprintf("HTTP response code: %d", response.StatusCode))
 		return nil, error
 	}
-	s.logger.Debug("%s: %d", response.Status, response.StatusCode)
+	s.logger.Debug(fmt.Sprintf("%s: %d", response.Status, response.StatusCode))
 
 	body, error := s.readHTTPBody(response)
 	if error != nil {
@@ -83,7 +83,7 @@ func (s SlackConnection) GetSecureRtmConnectionInfo(token string, slackAPIURL st
 	unmarshallError := json.Unmarshal(body, rtmConnectResponse)
 
 	if error != nil {
-		s.logger.Crit("Could not deserialize connection response object: %s", unmarshallError.Error())
+		s.logger.Crit(fmt.Sprintf("Could not deserialize connection response object: %s", unmarshallError.Error()))
 		return nil, unmarshallError
 	}
 	return rtmConnectResponse, nil
@@ -97,7 +97,7 @@ func (s SlackConnection) readHTTPBody(response *http.Response) ([]byte, error) {
 	body, error := ioutil.ReadAll(response.Body)
 
 	if error != nil {
-		s.logger.Crit("Could not read body from RTM connection response, %s", error.Error())
+		s.logger.Crit(fmt.Sprintf("Could not read body from RTM connection response, %s", error.Error()))
 		return nil, error
 	}
 
@@ -108,7 +108,7 @@ func (s SlackConnection) readHTTPBody(response *http.Response) ([]byte, error) {
 func (s SlackConnection) InitiateWebsocketConnection(url string) (*websocket.Conn, error) {
 	socket, error := websocket.Dial(url, "", "https://slack.com")
 	if error != nil {
-		s.logger.Crit("Could not initiate websocket connection: %s", error.Error())
+		s.logger.Crit(fmt.Sprintf("Could not initiate websocket connection: %s", error.Error()))
 		return nil, error
 	}
 
