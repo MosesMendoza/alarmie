@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"reflect"
 	"strconv"
 	"testing"
@@ -21,12 +22,13 @@ func TestInitiateWebsocketConnectionCreatesWebsocket(t *testing.T) {
 	bindPort := strconv.Itoa(rand.Intn(9999))
 
 	websocketURL := scheme + listenAddress + ":" + bindPort + route
-	server := testUtils.StartTestWebsocketServer(route, bindPort, reply)
+	server := testUtils.GetTestWebsocketServer(route, bindPort, reply)
+	testUtils.RunHTTPServerListenLoop(server)
 
 	logger := testUtils.GetTestLogger()
 	slackConnection := SlackConnection{logger: logger}
 	// teardown
-	defer testUtils.StopTestWebsocketServer(server)
+	defer testUtils.StopTestServer(server)
 
 	connection, error := slackConnection.InitiateWebsocketConnection(websocketURL)
 	if error != nil {
@@ -36,6 +38,12 @@ func TestInitiateWebsocketConnectionCreatesWebsocket(t *testing.T) {
 
 	if reflect.TypeOf(connection) != reflect.TypeOf(new(websocket.Conn)) {
 		t.Errorf("Expected InitiateWebsocketConnection to return a *websocket.Conn, but received %s", reflect.TypeOf(connection))
+		t.FailNow()
+	}
+
+	closeError := connection.Close()
+	if closeError != nil {
+		t.Errorf("Could not close websocketconnection in test: %s", error.Error())
 		t.FailNow()
 	}
 }
@@ -61,7 +69,10 @@ func TestGetSecureRtmConnectionInfoDeserializes(t *testing.T) {
 		t.Errorf("Could not serialize expected response in test setup: %s", error.Error())
 		t.FailNow()
 	}
-	server := testUtils.StartTestHTTPServer(route, bindPort, string(replyObject))
+	server := testUtils.GetTestHTTPServer(route, bindPort, string(replyObject))
+	testUtils.RunHTTPServerListenLoop(server)
+	// teardown
+	defer testUtils.StopTestServer(server)
 
 	rtmConnectionInfo, error := slackConnection.GetSecureRtmConnectionInfo("aPretentTokne", rtmConnectURL)
 
@@ -85,25 +96,79 @@ func TestGetSecureRtmConnectionInfoDeserializes(t *testing.T) {
 		t.Errorf("Expected response property WsUrl to be https://aSecureUrl.foo/websocket, not %s", rtmConnectionInfo.WsURL)
 		t.FailNow()
 	}
-	// teardown
-	defer testUtils.StopTestWebsocketServer(server)
 }
 
-/*
+func TestConnectCreatesConnectionContext(t *testing.T) {
+	logger := testUtils.GetTestLogger()
+	slackConnection := SlackConnection{logger: logger}
+
+	const listenAddress = "127.0.0.1"
+	bindPort := strconv.Itoa(rand.Intn(9999))
+
+	// ============ HTTP Server Setup ===================================
+	const route = "/"
+	const scheme = "http://"
+	rtmConnectURL := scheme + listenAddress + ":" + bindPort + route
+
+	// =========== Websocket Server Setup ==================================
+	const websocketReply = "foo"
+	const websocketRoute = "/getwebsocket"
+	const websocketScheme = "ws://"
+	websocketURL := websocketScheme + listenAddress + ":" + bindPort + websocketRoute
+
+	// These are the objects the HTTP server will reply with to enable us to set
+	// up the websocket connection
+	expectedTeam := RtmConnectTeam{Domain: "fooTeam.com", ID: "teamID", Name: "teamName"}
+	expectedSelf := RtmConnectSelf{ID: "selfID", Name: "selfName"}
+	expectedConnectResponse := RtmConnectResponse{Ok: true, Self: expectedSelf, Team: expectedTeam, WsURL: websocketURL}
+
+	replyObject, error := json.Marshal(expectedConnectResponse)
+	if error != nil {
+		t.Errorf("Could not serialize expected response in test setup: %s", error.Error())
+		t.FailNow()
+	}
+
+	server := testUtils.GetTestHTTPServer(route, bindPort, string(replyObject))
+	websocketHandler := testUtils.CreateWebsocketHandlerWithResponse(websocketReply)
+	http.Handle(websocketRoute, websocket.Handler(websocketHandler))
+
+	defer testUtils.StopTestServer(server)
+	testUtils.RunHTTPServerListenLoop(server)
+
+	//  now the actual testing begins
+	rtmConnectionContext, error := slackConnection.Connect("aPretendToken", rtmConnectURL)
+
+	if rtmConnectionContext.TeamName != "teamName" {
+		t.Errorf("Expected response property Team to have a Name of teamName, not %s", rtmConnectionContext.TeamName)
+		t.FailNow()
+	}
+
+	// validate that the socket connection is active
+	socket := rtmConnectionContext.SocketConnection
 	message := "Test Message"
 	var reply string
 
-	sendError := websocket.Message.Send(connection, message)
+	sendError := websocket.Message.Send(socket, message)
 	if sendError != nil {
-		fmt.Printf("Could not send test message over websocket in slack_test: %s", sendError.Error())
+		t.Errorf("Could not send test message over websocket in slack_test: %s", sendError.Error())
 		t.FailNow()
 	}
 
-	receiveError := websocket.Message.Receive(connection, &reply)
+	receiveError := websocket.Message.Receive(socket, &reply)
 	if receiveError != nil {
-		fmt.Printf("Could not receive reply message over websocket in slack_test: %s", receiveError.Error())
+		t.Errorf("Could not receive reply message over websocket in slack_test: %s", receiveError.Error())
 		t.FailNow()
 	}
 
-	fmt.Printf("Server replied with %s", reply)
-*/
+	if reply != websocketReply {
+		t.Errorf("Expected websocket to reply with %s, not %s", websocketReply, reply)
+		t.FailNow()
+	}
+
+	// Close the socket connection
+	closeError := socket.Close()
+	if closeError != nil {
+		t.Errorf("Could not close test websocket connection: %s", closeError.Error())
+		t.FailNow()
+	}
+}
