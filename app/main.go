@@ -32,7 +32,7 @@ func main() {
 
 	application.Logger = logger
 
-	application.Logger.Debug("Initialized logging via log handler %v", logHandler)
+	application.Logger.Debug(fmt.Sprintf("Initialized logging via log handler %v", logHandler))
 
 	// initiate connection to slack
 	// Retrieve authorization credentials from environment variable
