@@ -12,44 +12,44 @@ import (
 // writes to console at INFO level.
 func GetTestLogger() log.Logger {
 	logger := log.New("Alarmie", "Test Logger")
-	logHandler := log.LvlFilterHandler(log.LvlInfo, log.StdoutHandler)
+	logHandler := log.LvlFilterHandler(log.LvlDebug, log.StdoutHandler)
 	logger.SetHandler(logHandler)
 	return logger
 }
 
-// StartTestWebsocketServer returns an instance of an HTTP Server that can serve
+// GetTestWebsocketServer returns an instance of an HTTP Server that can serve
 // websockets. Callers use the instance to stop the server. Takes two arguments:
 // route <string> a path/route to mount, which will return a websocket connection
 // response <string> a JSON blob that the websocket will reply to any message with,
 // 	(representing an object) to reply with given a GET to that route. This is to
 // 	be able to test message deserialization/handling logic in a client.
-func StartTestWebsocketServer(route string, bindPort string, response string) *http.Server {
+// Callers must start the server
+func GetTestWebsocketServer(route string, bindPort string, response string) *http.Server {
 	server := &http.Server{Addr: ":" + bindPort}
 
-	handler := createWebsocketHandlerWithResponse(response)
+	handler := CreateWebsocketHandlerWithResponse(response)
 
 	http.Handle(route, websocket.Handler(handler))
-
-	runHTTPServerListenLoop(server)
 	return server
 }
 
-// StartTestHTTPServer returns an instance of an HTTP Server that will reply
+// GetTestHTTPServer returns an instance of an HTTP Server that will reply
 // with a given message. Callers use the instance to stop the server. Takes two
 // arguments:
 // route <string> a path/route to mount
 // response <string> a JSON blob that the server will reply with to any requests
 // 	to the supplied route
 // This is to be able to test message deserialization/handling logic in client
-func StartTestHTTPServer(route string, bindPort string, response string) *http.Server {
+// The server must be started by the caller
+func GetTestHTTPServer(route string, bindPort string, response string) *http.Server {
 	server := &http.Server{Addr: ":" + bindPort}
-	handler := createHTTPHandlerWithResponse(response)
+	handler := CreateHTTPHandlerWithResponse(response)
 	http.HandleFunc(route, handler)
-	runHTTPServerListenLoop(server)
 	return server
 }
 
-func runHTTPServerListenLoop(server *http.Server) {
+// RunHTTPServerListenLoop is a simple helper to start an http server instance running
+func RunHTTPServerListenLoop(server *http.Server) {
 	go func() {
 		error := server.ListenAndServe()
 		if error != nil {
@@ -58,8 +58,8 @@ func runHTTPServerListenLoop(server *http.Server) {
 	}()
 }
 
-// StopTestWebsocketServer gracefully shuts down the http server
-func StopTestWebsocketServer(server *http.Server) error {
+// StopTestServer gracefully shuts down the http server
+func StopTestServer(server *http.Server) error {
 	error := server.Shutdown(nil)
 	if error != nil {
 		fmt.Printf("Could not stop test websocket server in test_utils: %s", error.Error())
@@ -68,10 +68,10 @@ func StopTestWebsocketServer(server *http.Server) error {
 	return nil
 }
 
-// createWebsocketHandlerWithResponse returns an anonymous function that can
+// CreateWebsocketHandlerWithResponse returns an anonymous function that can
 // stand in as a websocket handler for the test server, which will reply with
 // the given string
-func createWebsocketHandlerWithResponse(response string) func(*websocket.Conn) {
+func CreateWebsocketHandlerWithResponse(response string) func(*websocket.Conn) {
 	return func(socket *websocket.Conn) {
 		for {
 			var receivedMessage string
@@ -87,9 +87,9 @@ func createWebsocketHandlerWithResponse(response string) func(*websocket.Conn) {
 	}
 }
 
-// createHTTPHandlerWithResponse returns an anonymous function that can stand
+// CreateHTTPHandlerWithResponse returns an anonymous function that can stand
 // in as an HTTP request/response handler for the test server
-func createHTTPHandlerWithResponse(response string) func(http.ResponseWriter, *http.Request) {
+func CreateHTTPHandlerWithResponse(response string) func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		fmt.Fprint(writer, response)
 	}
