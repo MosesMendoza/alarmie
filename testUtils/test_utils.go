@@ -73,6 +73,7 @@ func StopTestServer(server *http.Server) error {
 // the given string
 func CreateWebsocketHandlerWithResponse(response string) func(*websocket.Conn) {
 	return func(socket *websocket.Conn) {
+		defer socket.Close()
 		for {
 			var receivedMessage string
 			receiveError := websocket.Message.Receive(socket, &receivedMessage)

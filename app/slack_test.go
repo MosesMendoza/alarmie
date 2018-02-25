@@ -40,12 +40,6 @@ func TestInitiateWebsocketConnectionCreatesWebsocket(t *testing.T) {
 		t.Errorf("Expected InitiateWebsocketConnection to return a *websocket.Conn, but received %s", reflect.TypeOf(connection))
 		t.FailNow()
 	}
-
-	closeError := connection.Close()
-	if closeError != nil {
-		t.Errorf("Could not close websocketconnection in test: %s", error.Error())
-		t.FailNow()
-	}
 }
 
 func TestGetSecureRtmConnectionInfoDeserializes(t *testing.T) {
@@ -162,13 +156,6 @@ func TestConnectCreatesConnectionContext(t *testing.T) {
 
 	if reply != websocketReply {
 		t.Errorf("Expected websocket to reply with %s, not %s", websocketReply, reply)
-		t.FailNow()
-	}
-
-	// Close the socket connection
-	closeError := socket.Close()
-	if closeError != nil {
-		t.Errorf("Could not close test websocket connection: %s", closeError.Error())
 		t.FailNow()
 	}
 }
